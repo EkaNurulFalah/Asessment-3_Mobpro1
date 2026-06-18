@@ -32,6 +32,7 @@ import androidx.credentials.GetCredentialRequest
 import androidx.credentials.GetCredentialResponse
 import androidx.credentials.exceptions.ClearCredentialException
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ekanurulfalah0018.asessment3.BuildConfig
 import com.ekanurulfalah0018.asessment3.R
 import com.ekanurulfalah0018.asessment3.model.User
@@ -108,6 +109,7 @@ fun MainScreen() {
 
 @Composable
 fun ScreenContent(modifier: Modifier = Modifier) {
+    val viewModel: MainViewModel = viewModel()
 
 }
 
