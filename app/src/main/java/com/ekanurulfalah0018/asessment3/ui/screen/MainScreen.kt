@@ -25,10 +25,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.GetCredentialResponse
+import androidx.credentials.exceptions.ClearCredentialException
 import androidx.credentials.exceptions.GetCredentialException
 import com.ekanurulfalah0018.asessment3.BuildConfig
 import com.ekanurulfalah0018.asessment3.R
@@ -97,6 +99,7 @@ fun MainScreen() {
             ProfilDialog(
                 user = user,
                 onDismissRequest = { showDialog = false }) {
+                CoroutineScope(Dispatchers.IO).launch { signOut(context, dataStore) }
                 showDialog = false
             }
         }
@@ -146,5 +149,17 @@ private suspend fun handleSignIn(
     }
     else {
         Log.e("SIGN-IN", "Error: unrecognized custom credential type.")
+    }
+}
+
+private suspend fun signOut(context: Context, dataStore: UserDataStore) {
+    try {
+        val credentialManager = CredentialManager.create(context)
+        credentialManager.clearCredentialState(
+            ClearCredentialStateRequest()
+        )
+        dataStore.saveData(User())
+    } catch (e: ClearCredentialException) {
+        Log.e("SIGN-IN", "Error: ${e.errorMessage}")
     }
 }
