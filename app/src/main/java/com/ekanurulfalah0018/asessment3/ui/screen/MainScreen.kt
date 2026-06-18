@@ -164,6 +164,7 @@ fun ListItem(sepatu: Sepatu) {
             contentDescription = sepatu.brand,
             contentScale = ContentScale.Crop,
             placeholder = painterResource(id = R.drawable.loading_img),
+            error = painterResource(id = R.drawable.baseline_broken_image_24),
             modifier = Modifier.fillMaxSize()
         )
         Column(
