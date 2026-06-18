@@ -163,6 +163,7 @@ fun ListItem(sepatu: Sepatu) {
                 .build(),
             contentDescription = sepatu.brand,
             contentScale = ContentScale.Crop,
+            placeholder = painterResource(id = R.drawable.loading_img),
             modifier = Modifier.fillMaxSize()
         )
         Column(
