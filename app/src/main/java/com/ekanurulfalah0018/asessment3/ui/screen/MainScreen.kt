@@ -11,6 +11,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,6 +20,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,6 +61,7 @@ import com.ekanurulfalah0018.asessment3.BuildConfig
 import com.ekanurulfalah0018.asessment3.R
 import com.ekanurulfalah0018.asessment3.model.Sepatu
 import com.ekanurulfalah0018.asessment3.model.User
+import com.ekanurulfalah0018.asessment3.network.ApiStatus
 import com.ekanurulfalah0018.asessment3.network.UserDataStore
 import com.ekanurulfalah0018.asessment3.ui.theme.Asessment3Theme
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
@@ -133,17 +137,47 @@ fun MainScreen() {
 fun ScreenContent(modifier: Modifier = Modifier) {
     val viewModel: MainViewModel = viewModel()
     val data by viewModel.data
+    val status by viewModel.status.collectAsState()
 
-    LazyVerticalGrid(
-        modifier = modifier.fillMaxSize(),
-        columns = GridCells.Fixed(2),
-        contentPadding = PaddingValues(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        items(data) { ListItem(sepatu = it) }
+    when (status) {
+        ApiStatus.LOADING -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        }
+
+        ApiStatus.SUCCESS -> {
+            LazyVerticalGrid(
+                modifier = modifier.fillMaxSize(),
+                columns = GridCells.Fixed(2),
+                contentPadding = PaddingValues(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(data) { ListItem(sepatu = it) }
+            }
+        }
+
+        ApiStatus.FAILED -> {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(text = stringResource(id = R.string.error))
+                Button(
+                    onClick = { viewModel.retrieveData() },
+                    modifier = Modifier.padding(top = 16.dp),
+                    contentPadding = PaddingValues(horizontal = 32.dp, vertical = 16.dp)
+                ) {
+                    Text(text = stringResource(id = R.string.try_again))
+                }
+            }
+        }
     }
-
 }
 
 @Composable

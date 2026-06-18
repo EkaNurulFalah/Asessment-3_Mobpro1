@@ -4,4 +4,6 @@
     <string name="tutup">Tutup</string>
     <string name="logout">Logout</string>
     <string name="gambar">Gambar %1$s</string>
+    <string name="error">Gagal memuat data.. Koneksi error.</string>
+    <string name="try_again">Coba lagi</string>
 </resources>

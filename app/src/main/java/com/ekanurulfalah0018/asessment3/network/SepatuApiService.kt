@@ -28,3 +28,5 @@ object SepatuApi {
         retrofit.create(SepatuApiService::class.java)
     }
 }
+
+enum class ApiStatus { LOADING, SUCCESS, FAILED }
