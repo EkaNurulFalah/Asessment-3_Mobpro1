@@ -27,8 +27,4 @@ object SepatuApi {
     val service: SepatuApiService by lazy {
         retrofit.create(SepatuApiService::class.java)
     }
-
-    fun getSepatuUrl(imageUrl: String): String {
-        return "$BASE_URL$imageUrl.jpg"
-    }
 }

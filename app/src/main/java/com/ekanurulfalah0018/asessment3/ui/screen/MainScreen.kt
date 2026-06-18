@@ -6,10 +6,15 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -28,13 +33,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
@@ -49,7 +58,6 @@ import com.ekanurulfalah0018.asessment3.BuildConfig
 import com.ekanurulfalah0018.asessment3.R
 import com.ekanurulfalah0018.asessment3.model.Sepatu
 import com.ekanurulfalah0018.asessment3.model.User
-import com.ekanurulfalah0018.asessment3.network.SepatuApi
 import com.ekanurulfalah0018.asessment3.network.UserDataStore
 import com.ekanurulfalah0018.asessment3.ui.theme.Asessment3Theme
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
@@ -127,8 +135,11 @@ fun ScreenContent(modifier: Modifier = Modifier) {
     val data by viewModel.data
 
     LazyVerticalGrid(
-        modifier = Modifier.fillMaxSize().padding(4.dp),
+        modifier = modifier.fillMaxSize(),
         columns = GridCells.Fixed(2),
+        contentPadding = PaddingValues(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(data) { ListItem(sepatu = it) }
     }
@@ -138,17 +149,40 @@ fun ScreenContent(modifier: Modifier = Modifier) {
 @Composable
 fun ListItem(sepatu: Sepatu) {
     Box(
-        modifier = Modifier.padding(4.dp).border(1.dp, Color.Gray)
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(220.dp)
+            .padding(4.dp)
+            .border(1.dp, Color.Gray),
+        contentAlignment = Alignment.BottomCenter
     ) {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
-                .data(SepatuApi.getSepatuUrl(sepatu.imageUrl))
+                .data(sepatu.imageUrl)
                 .crossfade(true)
                 .build(),
-            contentDescription = stringResource(R.string.gambar, sepatu.brand),
+            contentDescription = sepatu.brand,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxWidth().padding(4.dp)
+            modifier = Modifier.fillMaxSize()
         )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.Black.copy(alpha = 0.5f))
+                .padding(6.dp)
+        ) {
+            Text(
+                text = sepatu.brand,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            Text(
+                text = sepatu.name,
+                fontStyle = FontStyle.Italic,
+                fontSize = 14.sp,
+                color = Color.White
+            )
+        }
     }
 }
 
