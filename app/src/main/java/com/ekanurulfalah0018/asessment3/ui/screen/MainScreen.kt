@@ -103,9 +103,12 @@ fun MainScreen() {
     val user by dataStore.userFlow.collectAsState(User())
 
     var showDialog by remember { mutableStateOf(false) }
+    var showSepatuDialog by remember { mutableStateOf(false) }
+
     var bitmap: Bitmap? by remember { mutableStateOf(null) }
     var launcher = rememberLauncherForActivityResult(CropImageContract()) {
         bitmap = getCroppedImage(context.contentResolver, it)
+        if (bitmap != null) showSepatuDialog = true
     }
 
     Scaffold(
@@ -161,6 +164,15 @@ fun MainScreen() {
                 onDismissRequest = { showDialog = false }) {
                 CoroutineScope(Dispatchers.IO).launch { signOut(context, dataStore) }
                 showDialog = false
+            }
+        }
+
+        if (showSepatuDialog) {
+            SepatuDialog(
+                bitmap = bitmap,
+                onDismissRequest = { showSepatuDialog = false }) { brand, namaSepatu ->
+                Log.d("TAMBAH", "$brand $namaSepatu ditambahkan.")
+                showSepatuDialog = false
             }
         }
     }
