@@ -3,11 +3,13 @@ package com.ekanurulfalah0018.asessment3.ui.screen
 import android.content.ContentResolver
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -39,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -64,7 +67,6 @@ import androidx.credentials.exceptions.ClearCredentialException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageOptions
@@ -82,6 +84,12 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingExcept
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import android.util.Base64
+import androidx.compose.foundation.Image
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.graphics.asImageBitmap
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,6 +110,9 @@ fun MainScreen() {
     val dataStore = UserDataStore(context)
     val user by dataStore.userFlow.collectAsState(User())
 
+    val viewModel: MainViewModel = viewModel()
+    val errorMessage by viewModel.errorMessage
+
     var showDialog by remember { mutableStateOf(false) }
     var showSepatuDialog by remember { mutableStateOf(false) }
 
@@ -109,6 +120,10 @@ fun MainScreen() {
     var launcher = rememberLauncherForActivityResult(CropImageContract()) {
         bitmap = getCroppedImage(context.contentResolver, it)
         if (bitmap != null) showSepatuDialog = true
+    }
+
+    LaunchedEffect(user.email) {
+        viewModel.retrieveData(user.email)
     }
 
     Scaffold(
@@ -156,7 +171,7 @@ fun MainScreen() {
                 )
             }
         }
-    ) { innerPadding -> ScreenContent(Modifier.padding(innerPadding))
+    ) { innerPadding -> ScreenContent(viewModel, user.email, Modifier.padding(innerPadding))
 
         if (showDialog) {
             ProfilDialog(
@@ -171,16 +186,20 @@ fun MainScreen() {
             SepatuDialog(
                 bitmap = bitmap,
                 onDismissRequest = { showSepatuDialog = false }) { brand, namaSepatu ->
-                Log.d("TAMBAH", "$brand $namaSepatu ditambahkan.")
+                viewModel.saveData(user.email, brand, namaSepatu, bitmap!!)
                 showSepatuDialog = false
             }
+        }
+
+        if (errorMessage != null) {
+            Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+            viewModel.clearMessage()
         }
     }
 }
 
 @Composable
-fun ScreenContent(modifier: Modifier = Modifier) {
-    val viewModel: MainViewModel = viewModel()
+fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier = Modifier) {
     val data by viewModel.data
     val status by viewModel.status.collectAsState()
 
@@ -202,7 +221,35 @@ fun ScreenContent(modifier: Modifier = Modifier) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(data) { ListItem(sepatu = it) }
+                items(data) { sepatu ->
+
+                    var showDialog by remember {
+                        mutableStateOf(false)
+                    }
+
+                    ListItem(
+                        sepatu = sepatu,
+                        userId.isNotEmpty() && sepatu.userId == userId,
+                        onDelete = {
+                            showDialog = true
+                        }
+                    )
+
+                    if (showDialog) {
+                        DeleteDialog(
+                            onDismiss = {
+                                showDialog = false
+                            },
+                            onConfirm = {
+                                viewModel.deleteData(
+                                    userId,
+                                    sepatu.id
+                                )
+                                showDialog = false
+                            }
+                        )
+                    }
+                }
             }
         }
 
@@ -214,7 +261,7 @@ fun ScreenContent(modifier: Modifier = Modifier) {
             ) {
                 Text(text = stringResource(id = R.string.error))
                 Button(
-                    onClick = { viewModel.retrieveData() },
+                    onClick = { viewModel.retrieveData(userId) },
                     modifier = Modifier.padding(top = 16.dp),
                     contentPadding = PaddingValues(horizontal = 32.dp, vertical = 16.dp)
                 ) {
@@ -226,7 +273,22 @@ fun ScreenContent(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun ListItem(sepatu: Sepatu) {
+fun ListItem(sepatu: Sepatu, canDelete: Boolean, onDelete: () -> Unit) {
+    val isBase64 = !sepatu.imageUrl.startsWith("http")
+
+    val bitmap = remember(sepatu.imageUrl) {
+        if (isBase64) {
+            try {
+                val bytes = Base64.decode(sepatu.imageUrl, Base64.DEFAULT)
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -234,18 +296,45 @@ fun ListItem(sepatu: Sepatu) {
             .padding(4.dp)
             .border(1.dp, Color.Gray),
         contentAlignment = Alignment.BottomCenter
-    ) {
-        AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(sepatu.imageUrl)
-                .crossfade(true)
-                .build(),
-            contentDescription = sepatu.brand,
-            contentScale = ContentScale.Crop,
-            placeholder = painterResource(id = R.drawable.loading_img),
-            error = painterResource(id = R.drawable.baseline_broken_image_24),
-            modifier = Modifier.fillMaxSize()
-        )
+    )
+    {
+        if (isBase64) {
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = sepatu.brand,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Image(
+                    painter = painterResource(R.drawable.baseline_broken_image_24),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        } else {
+            AsyncImage(
+                model = sepatu.imageUrl,
+                contentDescription = sepatu.brand,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                placeholder = painterResource(R.drawable.loading_img),
+                error = painterResource(R.drawable.baseline_broken_image_24)
+            )
+        }
+        if (canDelete) {
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.align(Alignment.TopEnd)
+            ) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = Color.Red
+                )
+            }
+        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -265,6 +354,32 @@ fun ListItem(sepatu: Sepatu) {
             )
         }
     }
+}
+
+@Composable
+fun DeleteDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Hapus Data")
+        },
+        text = {
+            Text("Apakah Anda yakin ingin menghapus data ini?")
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Hapus")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Batal")
+            }
+        }
+    )
 }
 
 private suspend fun signIn(context: Context, dataStore: UserDataStore) {

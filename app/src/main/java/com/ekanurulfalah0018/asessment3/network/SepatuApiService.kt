@@ -5,7 +5,12 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
+import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.POST
+import retrofit2.http.PUT
+import retrofit2.http.Path
 
 private const val BASE_URL = "https://6a343c418248ee962fa5436e.mockapi.io/"
 
@@ -20,7 +25,19 @@ private val retrofit = Retrofit.Builder()
 
 interface SepatuApiService {
     @GET("asessment3/produksepatu")
-    suspend fun getSepatu(): List<Sepatu>
+    suspend fun getSepatu(
+    ): List<Sepatu>
+
+
+    @POST("asessment3/produksepatu")
+    suspend fun postSepatu(
+        @Body sepatu: Sepatu
+    ): Sepatu
+
+    @DELETE("asessment3/produksepatu/{id}")
+    suspend fun deleteSepatu(
+        @Path("id") id: String
+    )
 }
 
 object SepatuApi {
