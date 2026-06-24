@@ -38,6 +38,12 @@ interface SepatuApiService {
     suspend fun deleteSepatu(
         @Path("id") id: String
     )
+
+    @PUT("asessment3/produksepatu/{id}")
+    suspend fun updateSepatu(
+        @Path("id") id: String,
+        @Body sepatu: Sepatu
+    ): Sepatu
 }
 
 object SepatuApi {

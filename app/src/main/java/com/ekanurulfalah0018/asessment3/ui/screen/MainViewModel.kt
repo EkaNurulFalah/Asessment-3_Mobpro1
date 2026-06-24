@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import android.util.Base64
+import androidx.core.graphics.scale
 
 class MainViewModel : ViewModel() {
 
@@ -48,11 +49,10 @@ fun retrieveData(userId: String) {
 }
 
     private fun Bitmap.toBase64(): String {
-        val resized = Bitmap.createScaledBitmap(
-            this,
-            300,
-            300,
-            true
+        val resized = this.scale(
+            width = 300,
+            height = 300,
+            filter = true
         )
         val stream = ByteArrayOutputStream()
         resized.compress(
@@ -108,6 +108,36 @@ fun retrieveData(userId: String) {
                 retrieveData(userId)
 
             } catch (e: Exception) {
+                errorMessage.value = e.message
+            }
+        }
+    }
+
+    fun updateData(
+        userId: String,
+        id: String,
+        brand: String,
+        name: String,
+        imageUrl: String
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+
+                SepatuApi.service.updateSepatu(
+                    id,
+                    Sepatu(
+                        id = id,
+                        userId = userId,
+                        brand = brand,
+                        name = name,
+                        imageUrl = imageUrl
+                    )
+                )
+
+                retrieveData(userId)
+
+            } catch (e: Exception) {
+                Log.e("UPDATE", "Error", e)
                 errorMessage.value = e.message
             }
         }

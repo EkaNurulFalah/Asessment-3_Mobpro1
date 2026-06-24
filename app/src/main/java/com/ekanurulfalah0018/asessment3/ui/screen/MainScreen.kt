@@ -8,12 +8,14 @@ import android.graphics.ImageDecoder
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.util.Base64
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -27,8 +29,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,8 +42,10 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -50,12 +58,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.credentials.ClearCredentialStateRequest
@@ -84,12 +95,6 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingExcept
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import android.util.Base64
-import androidx.compose.foundation.Image
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
-import androidx.compose.ui.graphics.asImageBitmap
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -171,7 +176,12 @@ fun MainScreen() {
                 )
             }
         }
-    ) { innerPadding -> ScreenContent(viewModel, user.email, Modifier.padding(innerPadding))
+    ) { innerPadding -> ScreenContent(viewModel, user.email, Modifier.padding(innerPadding),
+        bitmapFromItem = { url ->
+            val bytes = Base64.decode(url, Base64.DEFAULT)
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        }
+    )
 
         if (showDialog) {
             ProfilDialog(
@@ -199,9 +209,17 @@ fun MainScreen() {
 }
 
 @Composable
-fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier = Modifier) {
+fun ScreenContent(
+    viewModel: MainViewModel,
+    userId: String,
+    modifier: Modifier = Modifier,
+    bitmapFromItem: (String) -> Bitmap?
+) {
     val data by viewModel.data
     val status by viewModel.status.collectAsState()
+    var showEditDialog by remember { mutableStateOf(false) }
+    var editBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var editSepatu by remember { mutableStateOf<Sepatu?>(null) }
 
     when (status) {
         ApiStatus.LOADING -> {
@@ -222,8 +240,7 @@ fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier =
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(data) { sepatu ->
-
-                    var showDialog by remember {
+                    var showDeleteDialog by remember {
                         mutableStateOf(false)
                     }
 
@@ -231,24 +248,52 @@ fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier =
                         sepatu = sepatu,
                         userId.isNotEmpty() && sepatu.userId == userId,
                         onDelete = {
-                            showDialog = true
+                            showDeleteDialog = true
+                        },
+                        onEdit = {
+                            editSepatu = sepatu
+                            editBitmap = bitmapFromItem(sepatu.imageUrl)
+                            showEditDialog = true
                         }
                     )
 
-                    if (showDialog) {
+                    if (showDeleteDialog) {
                         DeleteDialog(
                             onDismiss = {
-                                showDialog = false
+                                showDeleteDialog = false
                             },
                             onConfirm = {
                                 viewModel.deleteData(
                                     userId,
                                     sepatu.id
                                 )
-                                showDialog = false
+                                showDeleteDialog = false
                             }
                         )
                     }
+                }
+            }
+            if (showEditDialog && editSepatu != null) {
+                EditSepatuDialog(
+                    bitmap = editBitmap,
+                    brandAwal = editSepatu!!.brand,
+                    namaAwal = editSepatu!!.name,
+                    onDismissRequest = {
+                        showEditDialog = false
+                        editSepatu = null
+                    }
+                ) { brandBaru, namaBaru ->
+
+                    viewModel.updateData(
+                        userId = userId,
+                        id = editSepatu!!.id,
+                        brand = brandBaru,
+                        name = namaBaru,
+                        imageUrl = editSepatu!!.imageUrl
+                    )
+
+                    showEditDialog = false
+                    editSepatu = null
                 }
             }
         }
@@ -273,7 +318,7 @@ fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier =
 }
 
 @Composable
-fun ListItem(sepatu: Sepatu, canDelete: Boolean, onDelete: () -> Unit) {
+fun ListItem(sepatu: Sepatu, canDelete: Boolean, onDelete: () -> Unit, onEdit: () -> Unit) {
     val isBase64 = !sepatu.imageUrl.startsWith("http")
 
     val bitmap = remember(sepatu.imageUrl) {
@@ -324,6 +369,16 @@ fun ListItem(sepatu: Sepatu, canDelete: Boolean, onDelete: () -> Unit) {
             )
         }
         if (canDelete) {
+            IconButton(
+                onClick = onEdit,
+                modifier = Modifier.align(Alignment.TopStart)
+            ) {
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = null,
+                    tint = Color.Yellow
+                )
+            }
             IconButton(
                 onClick = onDelete,
                 modifier = Modifier.align(Alignment.TopEnd)
@@ -376,6 +431,97 @@ fun DeleteDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
+                Text("Batal")
+            }
+        }
+    )
+}
+
+@Composable
+fun EditSepatuDialog(
+    bitmap: Bitmap?,
+    brandAwal: String,
+    namaAwal: String,
+    onDismissRequest: () -> Unit,
+    onConfirm: (String, String) -> Unit
+) {
+
+    var brand by remember {
+        mutableStateOf(brandAwal)
+    }
+
+    var nama by remember {
+        mutableStateOf(namaAwal)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = {
+            Text(
+                text = "Edit Data Sepatu",
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column {
+
+                Text(
+                    text = "Kamu yakin ingin mengedit data sepatu ini?",
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                bitmap?.let {
+                    Image(
+                        bitmap = it.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(220.dp),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+
+                OutlinedTextField(
+                    value = brand,
+                    onValueChange = { brand = it },
+                    label = { Text("Brand") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Next
+                    )
+                )
+
+                OutlinedTextField(
+                    value = nama,
+                    onValueChange = { nama = it },
+                    label = { Text("Nama Sepatu") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Done
+                    )
+                )
+            }
+        },
+
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onConfirm(brand, nama)
+                },
+                enabled = brand.isNotBlank() && nama.isNotBlank()
+            ) {
+                Text("Edit")
+            }
+        },
+
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) {
                 Text("Batal")
             }
         }
